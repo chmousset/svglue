@@ -11,8 +11,14 @@ RECT_TAG = '{http://www.w3.org/2000/svg}rect'
 TSPAN_TAG = '{http://www.w3.org/2000/svg}tspan'
 IMAGE_TAG = '{http://www.w3.org/2000/svg}image'
 USE_TAG = '{http://www.w3.org/2000/svg}use'
+GRP_TAG = '{http://www.w3.org/2000/svg}g'
+TXT_TAG = '{http://www.w3.org/2000/svg}text'
 HREF_ATTR = '{http://www.w3.org/1999/xlink}href'
 
+def fix_ids(etree):
+    etree.set('id', str(uuid4()))
+    for i in etree:
+        fix_ids(i)
 
 class TemplateParseError(Exception):
     pass
@@ -34,6 +40,7 @@ class Template(object):
         self._doc = doc
         self._rect_subs = {}
         self._tspan_subs = {}
+        self._grp_subs = {}
         self._defs = None
 
         for elem in self._doc.xpath('//*'):
@@ -48,6 +55,10 @@ class Template(object):
                 self._rect_subs[tid] = elem
             elif elem.tag == TSPAN_TAG:
                 self._tspan_subs[tid] = elem
+            elif elem.tag == GRP_TAG:
+                self._grp_subs[tid] = elem
+            elif elem.tag == TXT_TAG:
+                self._tspan_subs[tid] = elem[0]
             else:
                 raise TemplateParseError(
                     'Can only replace <rect> and <tspan> elements, found %s '
@@ -97,7 +108,7 @@ class Template(object):
                 mimetype, src.encode('base64')
             ))
 
-    def set_svg(self, tid, src=None, file=None):
+    def set_svg(self, tid, src=None, file=None, dx=0, dy=0, scalex=1):
         if not (src == None) ^ (file == None):
             raise RuntimeError('Must specify exactly one of src or '
                                'file argument')
@@ -120,6 +131,13 @@ class Template(object):
                 del elem.attrib[attr]
 
         elem.set(HREF_ATTR, '#' + doc_id)
+        elem.set('transform', "scale(%s, 1) translate(%s, %s)" % (scalex, dx,dy) )
+
+    def remove_group(self, tid):
+        self._grp_subs[tid].getparent().remove(self._grp_subs[tid])
+
+    def remove_rect(self, tid):
+        self._rect_subs[tid].getparent().remove(self._rect_subs[tid])
 
     def __str__(self):
         return etree.tostring(self._doc)
