@@ -114,24 +114,30 @@ class Template(object):
                                'file argument')
 
         if src:
-            doc = etree.fromstring(str(src))
+            isrt = etree.fromstring(str(src))
         else:
-            doc = etree.parse(file)
+            isrt = etree.parse(file)
 
-        doc_id = str(uuid4())
-        doc.getroot().set('id', doc_id)
-        self._defs.append(doc.getroot())
+        root = self._doc.getroot()
 
+        # get the position x & Y of the square
         elem = self._rect_subs[tid]
-        elem.tag = USE_TAG
+        x = str( float(elem.get('x')) * scalex)
+        y = float(elem.get('y'))
 
-        ALLOWED_ATTRS = ('x', 'y', 'width', 'height', 'style')
-        for attr in elem.attrib.keys():
-            if not attr in ALLOWED_ATTRS:
-                del elem.attrib[attr]
+        # Fix for inkscape-generated pins templates
+        height = float(isrt.getroot().get('height'))
+        y = str(y - height)
 
-        elem.set(HREF_ATTR, '#' + doc_id)
-        elem.set('transform', "scale(%s, 1) translate(%s, %s)" % (scalex, dx,dy) )
+        # remove the square
+        elem.getparent().remove(elem)
+
+        layer1 = self._doc.getroot().find(GRP_TAG)
+
+        pin = isrt.find(GRP_TAG) # get the first layer
+        fix_ids(pin) # change the ids to avoid any conflict
+        pin.set('transform', 'scale (%s, 1) translate(%s, %s)' % (scalex, x,y))
+        layer1.append(pin)
 
     def remove_group(self, tid):
         self._grp_subs[tid].getparent().remove(self._grp_subs[tid])
